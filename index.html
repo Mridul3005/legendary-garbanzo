@@ -6,38 +6,64 @@
     <title>Talkrr</title>
     <style>
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
             background-color: #f0f2f5;
             margin: 0;
             display: flex;
-            justify-content: center;
             height: 100vh;
         }
 
-        .chat-container {
-            width: 100%;
-            max-width: 600px;
+        .sidebar {
+            width: 250px;
             background: #ffffff;
+            border-right: 1px solid #ddd;
             display: flex;
             flex-direction: column;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .sidebar-header {
+            background-color: #0084ff;
+            color: white;
+            padding: 15px;
+            font-weight: bold;
+        }
+
+        .user-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+        }
+
+        .user-item {
+            padding: 10px;
+            margin-bottom: 5px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .user-item:hover { background-color: #f0f2f5; }
+        .user-item.active { background-color: #e6f2ff; font-weight: bold; color: #0084ff; }
+
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #e5ddd5;
         }
 
         .chat-header {
-            background-color: #0084ff;
-            color: white;
+            background: white;
             padding: 15px 20px;
-            font-size: 1.2rem;
+            font-size: 1.1rem;
             font-weight: bold;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            z-index: 10;
+            border-bottom: 1px solid #ddd;
         }
 
         .chat-messages {
             flex: 1;
             padding: 20px;
             overflow-y: auto;
-            background-color: #e5ddd5;
             display: flex;
             flex-direction: column;
             gap: 10px;
@@ -47,17 +73,22 @@
             background: white;
             padding: 10px 15px;
             border-radius: 18px;
-            max-width: 80%;
+            max-width: 70%;
             width: fit-content;
             box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-            word-wrap: break-word;
-            line-height: 1.4;
         }
 
-        .message-bubble strong {
-            color: #0084ff;
-            margin-right: 5px;
+        .message-system {
+            align-self: center;
+            background: rgba(0,0,0,0.1);
+            color: #555;
+            font-size: 0.85rem;
+            padding: 5px 12px;
+            border-radius: 12px;
         }
+
+        .message-private { background: #dcf8c6; border: 1px solid #c8e6b1;}
+        .sender-name { font-weight: bold; color: #0084ff; margin-right: 5px; }
 
         .chat-input-area {
             display: flex;
@@ -82,21 +113,21 @@
             border: none;
             padding: 0 20px;
             border-radius: 20px;
-            font-size: 16px;
             font-weight: bold;
             cursor: pointer;
-            transition: background 0.2s;
-        }
-
-        button:hover {
-            background-color: #006bce;
         }
     </style>
 </head>
 <body>
 
+    <div class="sidebar">
+        <div class="sidebar-header">Active Members</div>
+        <div class="user-list" id="userList">
+            </div>
+    </div>
+
     <div class="chat-container">
-        <div class="chat-header">Talkrr 💬</div>
+        <div class="chat-header" id="chatHeader">Chatting in: Group</div>
         <div class="chat-messages" id="messages"></div>
         
         <div class="chat-input-area">
@@ -107,32 +138,90 @@
 
     <script>
         let username = prompt("Enter your name:") || "Anonymous";
-
+        let currentTarget = "Group"; 
+        
         let protocol = window.location.protocol === "https:" ? "wss://" : "ws://";
         let ws = new WebSocket(protocol + window.location.host + "/ws");
         let messagesContainer = document.getElementById('messages');
 
+        ws.onopen = function() {
+            // Tell the server who we are using JSON
+            ws.send(JSON.stringify({ type: "join", username: username }));
+        };
+
         ws.onmessage = function(event) {
+            let data = JSON.parse(event.data);
+
+            if (data.type === "system") {
+                addMessage(data.text, "system");
+            } 
+            else if (data.type === "message") {
+                let isPrivate = data.target !== "Group";
+                let text = `<span class="sender-name">${data.sender}</span> ${isPrivate ? '(Private) ' : ''}${data.text}`;
+                addMessage(text, isPrivate ? "private" : "standard");
+            }
+            else if (data.type === "user_list") {
+                updateUserList(data.users);
+            }
+        };
+
+        function addMessage(htmlContent, type) {
             let messageDiv = document.createElement('div');
-            messageDiv.className = "message-bubble";
             
-            let splitIndex = event.data.indexOf(":");
-            if(splitIndex !== -1) {
-                let sender = event.data.substring(0, splitIndex);
-                let text = event.data.substring(splitIndex + 1);
-                messageDiv.innerHTML = `<strong>${sender}</strong> ${text}`;
+            if (type === "system") {
+                messageDiv.className = "message-system";
+            } else if (type === "private") {
+                messageDiv.className = "message-bubble message-private";
             } else {
-                messageDiv.textContent = event.data;
+                messageDiv.className = "message-bubble";
             }
 
+            messageDiv.innerHTML = htmlContent;
             messagesContainer.appendChild(messageDiv);
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
-        };
+        }
+
+        function updateUserList(users) {
+            let listDiv = document.getElementById("userList");
+            listDiv.innerHTML = ""; // Clear current list
+
+            // Always add the Group option
+            let groupDiv = document.createElement("div");
+            groupDiv.className = `user-item ${currentTarget === "Group" ? "active" : ""}`;
+            groupDiv.textContent = "🌍 Everyone (Group)";
+            groupDiv.onclick = () => setTarget("Group", groupDiv);
+            listDiv.appendChild(groupDiv);
+
+            // Add all active users
+            users.forEach(user => {
+                if (user !== username) { // Don't add yourself to the list
+                    let userDiv = document.createElement("div");
+                    userDiv.className = `user-item ${currentTarget === user ? "active" : ""}`;
+                    userDiv.textContent = "👤 " + user;
+                    userDiv.onclick = () => setTarget(user, userDiv);
+                    listDiv.appendChild(userDiv);
+                }
+            });
+        }
+
+        function setTarget(target, element) {
+            currentTarget = target;
+            document.getElementById("chatHeader").textContent = "Chatting with: " + target;
+            
+            // Update active styling
+            document.querySelectorAll(".user-item").forEach(el => el.classList.remove("active"));
+            element.classList.add("active");
+        }
 
         function sendMessage() {
             let input = document.getElementById("messageText");
             if (input.value.trim() !== "") {
-                ws.send(username + ": " + input.value);
+                let payload = {
+                    type: "message",
+                    target: currentTarget,
+                    text: input.value
+                };
+                ws.send(JSON.stringify(payload));
                 input.value = '';
                 input.focus();
             }
