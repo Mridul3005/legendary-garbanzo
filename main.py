@@ -5,7 +5,6 @@ from typing import Dict
 
 app = FastAPI()
 
-# Store connected users as { "username": websocket_object }
 connected_users: Dict[str, WebSocket] = {}
 
 @app.get("/")
@@ -14,7 +13,6 @@ async def get():
         return HTMLResponse(f.read())
 
 async def broadcast_user_list():
-    """Sends the current list of online users to everyone."""
     user_list = list(connected_users.keys())
     message = json.dumps({"type": "user_list", "users": user_list})
     for ws in connected_users.values():
@@ -27,15 +25,11 @@ async def websocket_endpoint(websocket: WebSocket):
     
     try:
         while True:
-            # Wait for a message and parse it as JSON
             data = await websocket.receive_text()
             parsed_data = json.loads(data)
 
-            # --- HANDLER: USER JOINS ---
             if parsed_data["type"] == "join":
                 username = parsed_data["username"]
-                
-                # Prevent duplicate names
                 original_name = username
                 counter = 1
                 while username in connected_users:
@@ -45,15 +39,17 @@ async def websocket_endpoint(websocket: WebSocket):
                 connected_users[username] = websocket
                 await broadcast_user_list()
                 
-                # Announce to group
-                system_msg = json.dumps({"type": "system", "text": f"{username} joined the chat."})
+                system_msg = json.dumps({"type": "system", "text": f"{username} joined."})
                 for ws in connected_users.values():
                     await ws.send_text(system_msg)
+                
+                print(f"✅ SERVER LOG: {username} connected. Total users: {len(connected_users)}")
 
-            # --- HANDLER: CHAT MESSAGE ---
             elif parsed_data["type"] == "message":
                 target = parsed_data.get("target", "Group")
                 text = parsed_data["text"]
+                
+                print(f"📩 SERVER LOG: Received message from [{username}] intended for [{target}]")
                 
                 msg_payload = json.dumps({
                     "type": "message",
@@ -63,20 +59,25 @@ async def websocket_endpoint(websocket: WebSocket):
                 })
 
                 if target == "Group":
-                    # Broadcast to everyone
+                    print("📢 SERVER LOG: Broadcasting to everyone.")
                     for ws in connected_users.values():
                         await ws.send_text(msg_payload)
                 else:
-                    # Private message: Send only to the target and the sender
+                    print(f"🔒 SERVER LOG: Attempting private route to {target}.")
                     if target in connected_users:
                         await connected_users[target].send_text(msg_payload)
+                        print(f"     -> Successfully delivered to {target}.")
+                    else:
+                        print(f"     -> ERROR: {target} is not in the active users list!")
+                    
+                    # Send copy back to sender
                     await websocket.send_text(msg_payload)
 
     except WebSocketDisconnect:
-        # --- HANDLER: USER DISCONNECTS ---
         if username and username in connected_users:
             del connected_users[username]
             await broadcast_user_list()
             system_msg = json.dumps({"type": "system", "text": f"{username} left."})
             for ws in connected_users.values():
                 await ws.send_text(system_msg)
+            print(f"❌ SERVER LOG: {username} disconnected.")
