@@ -43,13 +43,13 @@ async def websocket_endpoint(websocket: WebSocket):
                 for ws in connected_users.values():
                     await ws.send_text(system_msg)
                 
-                print(f"✅ SERVER LOG: {username} connected. Total users: {len(connected_users)}")
+                #print(f"✅ SERVER LOG: {username} connected. Total users: {len(connected_users)}")
 
             elif parsed_data["type"] == "message":
                 target = parsed_data.get("target", "Group")
                 text = parsed_data["text"]
                 
-                print(f"📩 SERVER LOG: Received message from [{username}] intended for [{target}]")
+                #print(f"📩 SERVER LOG: Received message from [{username}] intended for [{target}]")
                 
                 msg_payload = json.dumps({
                     "type": "message",
@@ -59,16 +59,16 @@ async def websocket_endpoint(websocket: WebSocket):
                 })
 
                 if target == "Group":
-                    print("📢 SERVER LOG: Broadcasting to everyone.")
+                    #print("📢 SERVER LOG: Broadcasting to everyone.")
                     for ws in connected_users.values():
                         await ws.send_text(msg_payload)
                 else:
-                    print(f"🔒 SERVER LOG: Attempting private route to {target}.")
+                    #print(f"🔒 SERVER LOG: Attempting private route to {target}.")
                     if target in connected_users:
                         await connected_users[target].send_text(msg_payload)
-                        print(f"     -> Successfully delivered to {target}.")
+                        #print(f"     -> Successfully delivered to {target}.")
                     else:
-                        print(f"     -> ERROR: {target} is not in the active users list!")
+                        #print(f"     -> ERROR: {target} is not in the active users list!")
                     
                     # Send copy back to sender
                     await websocket.send_text(msg_payload)
@@ -80,4 +80,4 @@ async def websocket_endpoint(websocket: WebSocket):
             system_msg = json.dumps({"type": "system", "text": f"{username} left."})
             for ws in connected_users.values():
                 await ws.send_text(system_msg)
-            print(f"❌ SERVER LOG: {username} disconnected.")
+            #print(f"❌ SERVER LOG: {username} disconnected.")
