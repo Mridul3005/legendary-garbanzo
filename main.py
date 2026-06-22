@@ -68,6 +68,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         await connected_users[target].send_text(msg_payload)
                         #print(f"     -> Successfully delivered to {target}.")
                     else:
+                        pass
                         #print(f"     -> ERROR: {target} is not in the active users list!")
                     
                     # Send copy back to sender
