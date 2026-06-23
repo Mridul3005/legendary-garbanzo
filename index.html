@@ -70,12 +70,29 @@
         }
 
         .message-bubble {
-            background: white;
             padding: 10px 15px;
             border-radius: 18px;
             max-width: 70%;
             width: fit-content;
             box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+            word-wrap: break-word;
+            line-height: 1.4;
+        }
+
+        /* Styles for messages YOU send (Right side) */
+        .message-mine {
+            align-self: flex-end;
+            background: #0084ff;
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        /* Styles for messages OTHERS send (Left side) */
+        .message-theirs {
+            align-self: flex-start;
+            background: white;
+            color: black;
+            border-bottom-left-radius: 4px;
         }
 
         .message-system {
@@ -87,8 +104,18 @@
             border-radius: 12px;
         }
 
-        .message-private { background: #dcf8c6; border: 1px solid #c8e6b1;}
-        .sender-name { font-weight: bold; color: #0084ff; margin-right: 5px; }
+        /* Distinct styling for private messages */
+        .message-theirs.message-private { background: #dcf8c6; border: 1px solid #c8e6b1; }
+        .message-mine.message-private { background: #005bb5; } 
+
+        .sender-name { 
+            font-weight: bold; 
+            color: #0084ff; 
+            margin-right: 5px; 
+            display: block; 
+            font-size: 0.85em; 
+            margin-bottom: 3px; 
+        }
 
         .chat-input-area {
             display: flex;
@@ -145,7 +172,6 @@
         let messagesContainer = document.getElementById('messages');
 
         ws.onopen = function() {
-            // Tell the server who we are using JSON
             ws.send(JSON.stringify({ type: "join", username: username }));
         };
 
@@ -153,48 +179,55 @@
             let data = JSON.parse(event.data);
 
             if (data.type === "system") {
-                addMessage(data.text, "system");
+                addMessage(data.text, "system", "System");
             } 
             else if (data.type === "message") {
                 let isPrivate = data.target !== "Group";
-                let text = `<span class="sender-name">${data.sender}</span> ${isPrivate ? '(Private) ' : ''}${data.text}`;
-                addMessage(text, isPrivate ? "private" : "standard");
+                addMessage(data.text, isPrivate ? "private" : "standard", data.sender);
             }
             else if (data.type === "user_list") {
                 updateUserList(data.users);
             }
         };
 
-        function addMessage(htmlContent, type) {
+        function addMessage(text, type, sender) {
             let messageDiv = document.createElement('div');
             
             if (type === "system") {
                 messageDiv.className = "message-system";
-            } else if (type === "private") {
-                messageDiv.className = "message-bubble message-private";
+                messageDiv.textContent = text;
             } else {
-                messageDiv.className = "message-bubble";
+                let isMe = (sender === username);
+                
+                let bubbleClass = isMe ? "message-mine" : "message-theirs";
+                let privateClass = type === "private" ? "message-private" : "";
+                messageDiv.className = `message-bubble ${bubbleClass} ${privateClass}`;
+                
+                let privateTag = type === "private" ? '🔒 ' : '';
+
+                if (isMe) {
+                    messageDiv.innerHTML = `${privateTag}${text}`;
+                } else {
+                    messageDiv.innerHTML = `<span class="sender-name">${sender}</span>${privateTag}${text}`;
+                }
             }
 
-            messageDiv.innerHTML = htmlContent;
             messagesContainer.appendChild(messageDiv);
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
         }
 
         function updateUserList(users) {
             let listDiv = document.getElementById("userList");
-            listDiv.innerHTML = ""; // Clear current list
+            listDiv.innerHTML = ""; 
 
-            // Always add the Group option
             let groupDiv = document.createElement("div");
             groupDiv.className = `user-item ${currentTarget === "Group" ? "active" : ""}`;
             groupDiv.textContent = "🌍 Everyone (Group)";
             groupDiv.onclick = () => setTarget("Group", groupDiv);
             listDiv.appendChild(groupDiv);
 
-            // Add all active users
             users.forEach(user => {
-                if (user !== username) { // Don't add yourself to the list
+                if (user !== username) { 
                     let userDiv = document.createElement("div");
                     userDiv.className = `user-item ${currentTarget === user ? "active" : ""}`;
                     userDiv.textContent = "👤 " + user;
@@ -208,7 +241,6 @@
             currentTarget = target;
             document.getElementById("chatHeader").textContent = "Chatting with: " + target;
             
-            // Update active styling
             document.querySelectorAll(".user-item").forEach(el => el.classList.remove("active"));
             element.classList.add("active");
         }
