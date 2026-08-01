@@ -356,7 +356,7 @@
                     target: currentTarget,
                     isTyping: typing
                 };
-                console.log("[DIAGNOSTIC] Sending WebSocket typing payload:", payload);
+                //console.log("[DIAGNOSTIC] Sending WebSocket typing payload:", payload);
                 ws.send(JSON.stringify(payload));
             } else {
                 console.warn("[DIAGNOSTIC] Cannot send typing status! Socket state is:", ws ? ws.readyState : "undefined");
@@ -367,9 +367,9 @@
         function initTypingListener() {
             const inputEl = document.getElementById("messageText");
             if (inputEl) {
-                console.log("[DIAGNOSTIC] Attached typing input event listener to #messageText");
+                //console.log("[DIAGNOSTIC] Attached typing input event listener to #messageText");
                 inputEl.addEventListener("input", function() {
-                    console.log("[DIAGNOSTIC] Key stroke detected in input field.");
+                    //console.log("[DIAGNOSTIC] Key stroke detected in input field.");
                     
                     if (!isTyping) {
                         isTyping = true;
@@ -378,7 +378,7 @@
 
                     clearTimeout(typingTimeout);
                     typingTimeout = setTimeout(() => {
-                        console.log("[DIAGNOSTIC] Typing timeout reached (1.5s idle). Stopping typing state.");
+                        //console.log("[DIAGNOSTIC] Typing timeout reached (1.5s idle). Stopping typing state.");
                         isTyping = false;
                         sendTypingStatus(false);
                     }, 1500);
@@ -402,7 +402,7 @@
         }
 
         ws.onopen = function() {
-            console.log("[DIAGNOSTIC] WebSocket connection opened successfully.");
+            //console.log("[DIAGNOSTIC] WebSocket connection opened successfully.");
             ws.send(JSON.stringify({ type: "join", username: username }));
         };
 
@@ -411,11 +411,11 @@
         };
 
         ws.onclose = function(event) {
-            console.warn("[DIAGNOSTIC] WebSocket connection closed.", event);
+            //console.warn("[DIAGNOSTIC] WebSocket connection closed.", event);
         };
 
         ws.onmessage = function(event) {
-            console.log("[DIAGNOSTIC] Incoming raw WS event:", event.data);
+            //console.log("[DIAGNOSTIC] Incoming raw WS event:", event.data);
             let data = JSON.parse(event.data);
 
             if (data.type === "system") {
@@ -431,7 +431,7 @@
                 }
             }
             else if (data.type === "typing") {
-                console.log("[DIAGNOSTIC] Typing event received from server:", data);
+                //console.log("[DIAGNOSTIC] Typing event received from server:", data);
                 if (data.sender !== username) {
                     if (data.isTyping) {
                         showTypingIndicator(data.sender);
