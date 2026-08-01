@@ -28,7 +28,9 @@ async def websocket_endpoint(websocket: WebSocket):
             data = await websocket.receive_text()
             parsed_data = json.loads(data)
 
-            if parsed_data["type"] == "join":
+            msg_type = parsed_data.get("type")
+
+            if msg_type == "join":
                 username = parsed_data["username"]
                 original_name = username
                 counter = 1
@@ -42,14 +44,10 @@ async def websocket_endpoint(websocket: WebSocket):
                 system_msg = json.dumps({"type": "system", "text": f"{username} joined."})
                 for ws in connected_users.values():
                     await ws.send_text(system_msg)
-                
-                #print(f"✅ SERVER LOG: {username} connected. Total users: {len(connected_users)}")
 
-            elif parsed_data["type"] == "message":
+            elif msg_type == "message":
                 target = parsed_data.get("target", "Group")
                 text = parsed_data["text"]
-                
-                #print(f"📩 SERVER LOG: Received message from [{username}] intended for [{target}]")
                 
                 msg_payload = json.dumps({
                     "type": "message",
@@ -59,20 +57,35 @@ async def websocket_endpoint(websocket: WebSocket):
                 })
 
                 if target == "Group":
-                    #print("📢 SERVER LOG: Broadcasting to everyone.")
                     for ws in connected_users.values():
                         await ws.send_text(msg_payload)
                 else:
-                    #print(f"🔒 SERVER LOG: Attempting private route to {target}.")
                     if target in connected_users:
                         await connected_users[target].send_text(msg_payload)
-                        #print(f"     -> Successfully delivered to {target}.")
-                    else:
-                        pass
-                        #print(f"     -> ERROR: {target} is not in the active users list!")
                     
                     # Send copy back to sender
                     await websocket.send_text(msg_payload)
+
+            elif msg_type == "typing":
+                target = parsed_data.get("target", "Group")
+                is_typing = parsed_data.get("isTyping", False)
+
+                typing_payload = json.dumps({
+                    "type": "typing",
+                    "sender": username,
+                    "target": target,
+                    "isTyping": is_typing
+                })
+
+                if target == "Group":
+                    # Broadcast typing status to everyone except the sender
+                    for user, ws in connected_users.items():
+                        if user != username:
+                            await ws.send_text(typing_payload)
+                else:
+                    # Forward typing status directly to target user
+                    if target in connected_users:
+                        await connected_users[target].send_text(typing_payload)
 
     except WebSocketDisconnect:
         if username and username in connected_users:
@@ -81,4 +94,3 @@ async def websocket_endpoint(websocket: WebSocket):
             system_msg = json.dumps({"type": "system", "text": f"{username} left."})
             for ws in connected_users.values():
                 await ws.send_text(system_msg)
-            #print(f"❌ SERVER LOG: {username} disconnected.")
