@@ -293,6 +293,15 @@
         let ws = new WebSocket(protocol + window.location.host + "/ws");
         let messagesContainer = document.getElementById('messages');
 
+        // Tab Notification State
+        let unreadCount = 0;
+        const originalTitle = "Talkrr";
+        let titleInterval = null;
+
+        // Typing Indicator State
+        let typingTimeout = null;
+        let isTyping = false;
+
         // Dark mode toggle event listener
         const toggleButton = document.getElementById('toggleButton');
         toggleButton.addEventListener('change', function() {
@@ -301,6 +310,65 @@
             } else {
                 document.body.classList.remove('dark-mode');
             }
+        });
+
+        // Clear notification whenever the user clicks into or views the tab
+        function clearTabNotification() {
+            unreadCount = 0;
+            if (titleInterval) {
+                clearInterval(titleInterval);
+                titleInterval = null;
+            }
+            document.title = originalTitle;
+        }
+
+        window.addEventListener('focus', clearTabNotification);
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden) {
+                clearTabNotification();
+            }
+        });
+
+        function notifyNewMessage() {
+            if (document.hidden) {
+                unreadCount++;
+                if (!titleInterval) {
+                    let isOriginal = false;
+                    titleInterval = setInterval(() => {
+                        if (isOriginal) {
+                            document.title = originalTitle;
+                        } else {
+                            document.title = `(${unreadCount}) New Message!`;
+                        }
+                        isOriginal = !isOriginal;
+                    }, 1000);
+                }
+            }
+        }
+
+        // Send typing status via WebSocket
+        function sendTypingStatus(typing) {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: "typing",
+                    target: currentTarget,
+                    isTyping: typing
+                }));
+            }
+        }
+
+        // Typing event handler on input box
+        document.getElementById("messageText").addEventListener("input", function() {
+            if (!isTyping) {
+                isTyping = true;
+                sendTypingStatus(true);
+            }
+
+            clearTimeout(typingTimeout);
+            typingTimeout = setTimeout(() => {
+                isTyping = false;
+                sendTypingStatus(false);
+            }, 1500);
         });
 
         ws.onopen = function() {
@@ -314,13 +382,46 @@
                 addMessage(data.text, "system", "System");
             } 
             else if (data.type === "message") {
+                hideTypingIndicator();
                 let isPrivate = data.target !== "Group";
                 addMessage(data.text, isPrivate ? "private" : "standard", data.sender);
+                
+                if (data.sender !== username) {
+                    notifyNewMessage();
+                }
+            }
+            else if (data.type === "typing") {
+                if (data.sender !== username) {
+                    if (data.isTyping) {
+                        showTypingIndicator(data.sender);
+                    } else {
+                        hideTypingIndicator();
+                    }
+                }
             }
             else if (data.type === "user_list") {
                 updateUserList(data.users);
             }
         };
+
+        function showTypingIndicator(sender) {
+            let indicator = document.getElementById("typingIndicator");
+            if (!indicator) {
+                indicator = document.createElement("div");
+                indicator.id = "typingIndicator";
+                indicator.className = "message-system";
+                messagesContainer.appendChild(indicator);
+            }
+            indicator.textContent = `${sender} is typing...`;
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function hideTypingIndicator() {
+            let indicator = document.getElementById("typingIndicator");
+            if (indicator) {
+                indicator.remove();
+            }
+        }
 
         function addMessage(text, type, sender) {
             let messageDiv = document.createElement('div');
@@ -375,11 +476,17 @@
             
             document.querySelectorAll(".user-item").forEach(el => el.classList.remove("active"));
             element.classList.add("active");
+            hideTypingIndicator();
         }
 
         function sendMessage() {
             let input = document.getElementById("messageText");
             if (input.value.trim() !== "") {
+                // Clear active typing indicator timer when sending
+                clearTimeout(typingTimeout);
+                isTyping = false;
+                sendTypingStatus(false);
+
                 let payload = {
                     type: "message",
                     target: currentTarget,
