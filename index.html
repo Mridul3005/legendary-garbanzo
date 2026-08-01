@@ -11,6 +11,7 @@
             margin: 0;
             display: flex;
             height: 100vh;
+            transition: background-color 0.3s, color 0.3s;
         }
 
         .sidebar {
@@ -19,6 +20,7 @@
             border-right: 1px solid #ddd;
             display: flex;
             flex-direction: column;
+            transition: background-color 0.3s, border-color 0.3s;
         }
 
         .sidebar-header {
@@ -39,7 +41,7 @@
             margin-bottom: 5px;
             border-radius: 8px;
             cursor: pointer;
-            transition: background 0.2s;
+            transition: background 0.2s, color 0.2s;
         }
 
         .user-item:hover { background-color: #f0f2f5; }
@@ -50,6 +52,7 @@
             display: flex;
             flex-direction: column;
             background: #e5ddd5;
+            transition: background-color 0.3s;
         }
 
         .chat-header {
@@ -58,6 +61,10 @@
             font-size: 1.1rem;
             font-weight: bold;
             border-bottom: 1px solid #ddd;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background-color 0.3s, border-color 0.3s, color 0.3s;
         }
 
         .chat-messages {
@@ -102,6 +109,7 @@
             font-size: 0.85rem;
             padding: 5px 12px;
             border-radius: 12px;
+            transition: background 0.3s, color 0.3s;
         }
 
         /* Distinct styling for private messages */
@@ -123,6 +131,7 @@
             background: #f0f2f5;
             border-top: 1px solid #ddd;
             gap: 10px;
+            transition: background-color 0.3s, border-color 0.3s;
         }
 
         #messageText {
@@ -132,6 +141,7 @@
             border-radius: 20px;
             font-size: 16px;
             outline: none;
+            transition: background-color 0.3s, color 0.3s;
         }
 
         button {
@@ -143,18 +153,130 @@
             font-weight: bold;
             cursor: pointer;
         }
+        
+        /* Toggle Switch Styling */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 25px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: #bc1ced;
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+
+        /* DARK MODE STYLES */
+        body.dark-mode {
+            background-color: #121212;
+            color: #e0e0e0;
+        }
+
+        body.dark-mode .sidebar {
+            background-color: #1e1e1e;
+            border-right-color: #333333;
+        }
+
+        body.dark-mode .user-item:hover {
+            background-color: #2a2a2a;
+        }
+
+        body.dark-mode .user-item.active {
+            background-color: #003b73;
+            color: #66b2ff;
+        }
+
+        body.dark-mode .chat-container {
+            background-color: #0b0e14;
+        }
+
+        body.dark-mode .chat-header {
+            background-color: #1e1e1e;
+            border-bottom-color: #333333;
+            color: #ffffff;
+        }
+
+        body.dark-mode .message-theirs {
+            background-color: #262626;
+            color: #e0e0e0;
+        }
+
+        body.dark-mode .message-theirs.message-private {
+            background-color: #1b3820;
+            border-color: #2e5a37;
+            color: #d4f8d4;
+        }
+
+        body.dark-mode .message-system {
+            background-color: rgba(255, 255, 255, 0.1);
+            color: #aaa;
+        }
+
+        body.dark-mode .chat-input-area {
+            background-color: #1e1e1e;
+            border-top-color: #333333;
+        }
+
+        body.dark-mode #messageText {
+            background-color: #2a2a2a;
+            color: #ffffff;
+        }
+
+        body.dark-mode #messageText::placeholder {
+            color: #888888;
+        }
     </style>
 </head>
 <body>
 
     <div class="sidebar">
         <div class="sidebar-header">Active Members</div>
-        <div class="user-list" id="userList">
-            </div>
+        <div class="user-list" id="userList"></div>
     </div>
 
     <div class="chat-container">
-        <div class="chat-header" id="chatHeader">Chatting in: Group</div>
+        <div class="chat-header">
+            <span id="chatHeaderText">Chatting with: Group</span>
+            <label class="switch">
+                <input type="checkbox" id="toggleButton">
+                <span class="slider"></span>
+            </label>
+        </div>
+        
         <div class="chat-messages" id="messages"></div>
         
         <div class="chat-input-area">
@@ -170,6 +292,16 @@
         let protocol = window.location.protocol === "https:" ? "wss://" : "ws://";
         let ws = new WebSocket(protocol + window.location.host + "/ws");
         let messagesContainer = document.getElementById('messages');
+
+        // Dark mode toggle event listener
+        const toggleButton = document.getElementById('toggleButton');
+        toggleButton.addEventListener('change', function() {
+            if (this.checked) {
+                document.body.classList.add('dark-mode');
+            } else {
+                document.body.classList.remove('dark-mode');
+            }
+        });
 
         ws.onopen = function() {
             ws.send(JSON.stringify({ type: "join", username: username }));
@@ -239,7 +371,7 @@
 
         function setTarget(target, element) {
             currentTarget = target;
-            document.getElementById("chatHeader").textContent = "Chatting with: " + target;
+            document.getElementById("chatHeaderText").textContent = "Chatting with: " + target;
             
             document.querySelectorAll(".user-item").forEach(el => el.classList.remove("active"));
             element.classList.add("active");
