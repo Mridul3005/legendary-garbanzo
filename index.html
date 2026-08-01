@@ -304,13 +304,15 @@
 
         // Dark mode toggle event listener
         const toggleButton = document.getElementById('toggleButton');
-        toggleButton.addEventListener('change', function() {
-            if (this.checked) {
-                document.body.classList.add('dark-mode');
-            } else {
-                document.body.classList.remove('dark-mode');
-            }
-        });
+        if (toggleButton) {
+            toggleButton.addEventListener('change', function() {
+                if (this.checked) {
+                    document.body.classList.add('dark-mode');
+                } else {
+                    document.body.classList.remove('dark-mode');
+                }
+            });
+        }
 
         // Clear notification whenever the user clicks into or views the tab
         function clearTabNotification() {
@@ -349,33 +351,71 @@
         // Send typing status via WebSocket
         function sendTypingStatus(typing) {
             if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({
+                let payload = {
                     type: "typing",
                     target: currentTarget,
                     isTyping: typing
-                }));
+                };
+                console.log("[DIAGNOSTIC] Sending WebSocket typing payload:", payload);
+                ws.send(JSON.stringify(payload));
+            } else {
+                console.warn("[DIAGNOSTIC] Cannot send typing status! Socket state is:", ws ? ws.readyState : "undefined");
             }
         }
 
-        // Typing event handler on input box
-        document.getElementById("messageText").addEventListener("input", function() {
-            if (!isTyping) {
-                isTyping = true;
-                sendTypingStatus(true);
-            }
+        // Attach input listener safely
+        function initTypingListener() {
+            const inputEl = document.getElementById("messageText");
+            if (inputEl) {
+                console.log("[DIAGNOSTIC] Attached typing input event listener to #messageText");
+                inputEl.addEventListener("input", function() {
+                    console.log("[DIAGNOSTIC] Key stroke detected in input field.");
+                    
+                    if (!isTyping) {
+                        isTyping = true;
+                        sendTypingStatus(true);
+                    }
 
-            clearTimeout(typingTimeout);
-            typingTimeout = setTimeout(() => {
-                isTyping = false;
-                sendTypingStatus(false);
-            }, 1500);
-        });
+                    clearTimeout(typingTimeout);
+                    typingTimeout = setTimeout(() => {
+                        console.log("[DIAGNOSTIC] Typing timeout reached (1.5s idle). Stopping typing state.");
+                        isTyping = false;
+                        sendTypingStatus(false);
+                    }, 1500);
+                });
+
+                inputEl.addEventListener("keypress", function(event) {
+                    if (event.key === "Enter") {
+                        event.preventDefault();
+                        sendMessage();
+                    }
+                });
+            } else {
+                console.error("[DIAGNOSTIC] Failed to find #messageText element!");
+            }
+        }
+
+        if (document.readyState === "loading") {
+            document.addEventListener("DOMContentLoaded", initTypingListener);
+        } else {
+            initTypingListener();
+        }
 
         ws.onopen = function() {
+            console.log("[DIAGNOSTIC] WebSocket connection opened successfully.");
             ws.send(JSON.stringify({ type: "join", username: username }));
         };
 
+        ws.onerror = function(error) {
+            console.error("[DIAGNOSTIC] WebSocket Error encountered:", error);
+        };
+
+        ws.onclose = function(event) {
+            console.warn("[DIAGNOSTIC] WebSocket connection closed.", event);
+        };
+
         ws.onmessage = function(event) {
+            console.log("[DIAGNOSTIC] Incoming raw WS event:", event.data);
             let data = JSON.parse(event.data);
 
             if (data.type === "system") {
@@ -391,6 +431,7 @@
                 }
             }
             else if (data.type === "typing") {
+                console.log("[DIAGNOSTIC] Typing event received from server:", data);
                 if (data.sender !== username) {
                     if (data.isTyping) {
                         showTypingIndicator(data.sender);
@@ -482,7 +523,6 @@
         function sendMessage() {
             let input = document.getElementById("messageText");
             if (input.value.trim() !== "") {
-                // Clear active typing indicator timer when sending
                 clearTimeout(typingTimeout);
                 isTyping = false;
                 sendTypingStatus(false);
@@ -497,13 +537,6 @@
                 input.focus();
             }
         }
-
-        document.getElementById("messageText").addEventListener("keypress", function(event) {
-            if (event.key === "Enter") {
-                event.preventDefault();
-                sendMessage();
-            }
-        });
     </script>
 </body>
 </html>
