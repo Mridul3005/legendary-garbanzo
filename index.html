@@ -1,3 +1,4 @@
+<!--
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -533,6 +534,581 @@
                     text: input.value
                 };
                 ws.send(JSON.stringify(payload));
+                input.value = '';
+                input.focus();
+            }
+        }
+    </script>
+</body>
+</html>
+
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Talkrr</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background-color: #f0f2f5;
+            margin: 0;
+            display: flex;
+            height: 100vh;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .sidebar {
+            width: 250px;
+            background: #ffffff;
+            border-right: 1px solid #ddd;
+            display: flex;
+            flex-direction: column;
+            transition: background-color 0.3s, border-color 0.3s;
+        }
+
+        .sidebar-header {
+            background-color: #0084ff;
+            color: white;
+            padding: 15px;
+            font-weight: bold;
+        }
+
+        .user-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+        }
+
+        .user-item {
+            padding: 10px;
+            margin-bottom: 5px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s, color 0.2s;
+        }
+
+        .user-item:hover { background-color: #f0f2f5; }
+        .user-item.active { background-color: #e6f2ff; font-weight: bold; color: #0084ff; }
+
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #e5ddd5;
+            transition: background-color 0.3s;
+        }
+
+        .chat-header {
+            background: white;
+            padding: 15px 20px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background-color 0.3s, border-color 0.3s, color 0.3s;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .message-bubble {
+            padding: 10px 15px;
+            border-radius: 18px;
+            max-width: 70%;
+            width: fit-content;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+            word-wrap: break-word;
+            line-height: 1.4;
+        }
+
+        /* Styles for messages YOU send (Right side) */
+        .message-mine {
+            align-self: flex-end;
+            background: #0084ff;
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        /* Styles for messages OTHERS send (Left side) */
+        .message-theirs {
+            align-self: flex-start;
+            background: white;
+            color: black;
+            border-bottom-left-radius: 4px;
+        }
+
+        .message-system {
+            align-self: center;
+            background: rgba(0,0,0,0.1);
+            color: #555;
+            font-size: 0.85rem;
+            padding: 5px 12px;
+            border-radius: 12px;
+            transition: background 0.3s, color 0.3s;
+        }
+
+        /* Distinct styling for private messages */
+        .message-theirs.message-private { background: #dcf8c6; border: 1px solid #c8e6b1; }
+        .message-mine.message-private { background: #005bb5; } 
+
+        .sender-name { 
+            font-weight: bold; 
+            color: #0084ff; 
+            margin-right: 5px; 
+            display: block; 
+            font-size: 0.85em; 
+            margin-bottom: 3px; 
+        }
+
+        .chat-input-area {
+            display: flex;
+            padding: 15px;
+            background: #f0f2f5;
+            border-top: 1px solid #ddd;
+            gap: 10px;
+            transition: background-color 0.3s, border-color 0.3s;
+        }
+
+        #messageText {
+            flex: 1;
+            padding: 12px 15px;
+            border: none;
+            border-radius: 20px;
+            font-size: 16px;
+            outline: none;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        button {
+            background-color: #0084ff;
+            color: white;
+            border: none;
+            padding: 0 20px;
+            border-radius: 20px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        /* Toggle Switch Styling */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 25px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background: linear-gradient(125.83deg, #392DD1 0%, #A91B78 100%);
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+
+        /* DARK MODE STYLES */
+        body.dark-mode {
+            background-color: #121212;
+            color: #e0e0e0;
+        }
+
+        body.dark-mode .sidebar {
+            background-color: #1e1e1e;
+            border-right-color: #333333;
+        }
+
+        body.dark-mode .user-item:hover {
+            background-color: #2a2a2a;
+        }
+
+        body.dark-mode .user-item.active {
+            background-color: #003b73;
+            color: #66b2ff;
+        }
+
+        body.dark-mode .chat-container {
+            background-color: #0b0e14;
+        }
+
+        body.dark-mode .chat-header {
+            background-color: #1e1e1e;
+            border-bottom-color: #333333;
+            color: #ffffff;
+        }
+
+        body.dark-mode .message-theirs {
+            background-color: #262626;
+            color: #e0e0e0;
+        }
+
+        body.dark-mode .message-theirs.message-private {
+            background-color: #1b3820;
+            border-color: #2e5a37;
+            color: #d4f8d4;
+        }
+
+        body.dark-mode .message-system {
+            background-color: rgba(255, 255, 255, 0.1);
+            color: #aaa;
+        }
+
+        body.dark-mode .chat-input-area {
+            background-color: #1e1e1e;
+            border-top-color: #333333;
+        }
+
+        body.dark-mode #messageText {
+            background-color: #2a2a2a;
+            color: #ffffff;
+        }
+
+        body.dark-mode #messageText::placeholder {
+            color: #888888;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <div class="sidebar-header">Active Members</div>
+        <div class="user-list" id="userList"></div>
+    </div>
+
+    <div class="chat-container">
+        <div class="chat-header">
+            <span id="chatHeaderText">Chatting with: Group</span>
+            <label class="switch">
+                <input type="checkbox" id="toggleButton">
+                <span class="slider"></span>
+            </label>
+        </div>
+        
+        <div class="chat-messages" id="messages"></div>
+        
+        <div class="chat-input-area">
+            <input type="text" id="messageText" autocomplete="off" placeholder="Message..." autofocus/>
+            <button onclick="sendMessage()">Send</button>
+        </div>
+    </div>
+
+    <script>
+        let username = prompt("Enter your name:") || "Anonymous";
+        let currentTarget = "Group"; 
+        
+        // Message store to track histories per target
+        let messageStore = {
+            "Group": []
+        };
+        
+        let protocol = window.location.protocol === "https:" ? "wss://" : "ws://";
+        let ws = new WebSocket(protocol + window.location.host + "/ws");
+        let messagesContainer = document.getElementById('messages');
+
+        // Tab Notification State
+        let unreadCount = 0;
+        const originalTitle = "Talkrr";
+        let titleInterval = null;
+
+        // Typing Indicator State
+        let typingTimeout = null;
+        let isTyping = false;
+
+        // Dark mode toggle event listener
+        const toggleButton = document.getElementById('toggleButton');
+        if (toggleButton) {
+            toggleButton.addEventListener('change', function() {
+                if (this.checked) {
+                    document.body.classList.add('dark-mode');
+                } else {
+                    document.body.classList.remove('dark-mode');
+                }
+            });
+        }
+
+        // Clear notification whenever the user clicks into or views the tab
+        function clearTabNotification() {
+            unreadCount = 0;
+            if (titleInterval) {
+                clearInterval(titleInterval);
+                titleInterval = null;
+            }
+            document.title = originalTitle;
+        }
+
+        window.addEventListener('focus', clearTabNotification);
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden) {
+                clearTabNotification();
+            }
+        });
+
+        function notifyNewMessage() {
+            if (document.hidden) {
+                unreadCount++;
+                if (!titleInterval) {
+                    let isOriginal = false;
+                    titleInterval = setInterval(() => {
+                        if (isOriginal) {
+                            document.title = originalTitle;
+                        } else {
+                            document.title = `(${unreadCount}) New Message!`;
+                        }
+                        isOriginal = !isOriginal;
+                    }, 1000);
+                }
+            }
+        }
+
+        // Send typing status via WebSocket
+        function sendTypingStatus(typing) {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                let payload = {
+                    type: "typing",
+                    target: currentTarget,
+                    isTyping: typing
+                };
+                ws.send(JSON.stringify(payload));
+            } else {
+                console.warn("[DIAGNOSTIC] Cannot send typing status! Socket state is:", ws ? ws.readyState : "undefined");
+            }
+        }
+
+        // Attach input listener safely
+        function initTypingListener() {
+            const inputEl = document.getElementById("messageText");
+            if (inputEl) {
+                inputEl.addEventListener("input", function() {
+                    if (!isTyping) {
+                        isTyping = true;
+                        sendTypingStatus(true);
+                    }
+
+                    clearTimeout(typingTimeout);
+                    typingTimeout = setTimeout(() => {
+                        isTyping = false;
+                        sendTypingStatus(false);
+                    }, 1500);
+                });
+
+                inputEl.addEventListener("keypress", function(event) {
+                    if (event.key === "Enter") {
+                        event.preventDefault();
+                        sendMessage();
+                    }
+                });
+            } else {
+                console.error("[DIAGNOSTIC] Failed to find #messageText element!");
+            }
+        }
+
+        if (document.readyState === "loading") {
+            document.addEventListener("DOMContentLoaded", initTypingListener);
+        } else {
+            initTypingListener();
+        }
+
+        ws.onopen = function() {
+            ws.send(JSON.stringify({ type: "join", username: username }));
+        };
+
+        ws.onerror = function(error) {
+            console.error("[DIAGNOSTIC] WebSocket Error encountered:", error);
+        };
+
+        ws.onclose = function(event) {
+            // WebSocket closed
+        };
+
+        ws.onmessage = function(event) {
+            let data = JSON.parse(event.data);
+
+            if (data.type === "system") {
+                addMessage(data.text, "system", "System", "Group");
+            } 
+            else if (data.type === "message") {
+                hideTypingIndicator();
+                let isPrivate = data.target !== "Group";
+                
+                let conversationTarget = data.sender === username ? data.target : data.sender;
+                if (data.target === "Group") conversationTarget = "Group";
+
+                let messageType = isPrivate ? "private" : "standard";
+                addMessage(data.text, messageType, data.sender, conversationTarget);
+                
+                if (data.sender !== username) {
+                    notifyNewMessage();
+                }
+            }
+            else if (data.type === "typing") {
+                if (data.sender !== username) {
+                    if (data.isTyping) {
+                        showTypingIndicator(data.sender);
+                    } else {
+                        hideTypingIndicator();
+                    }
+                }
+            }
+            else if (data.type === "user_list") {
+                updateUserList(data.users);
+            }
+        };
+
+        function showTypingIndicator(sender) {
+            let indicator = document.getElementById("typingIndicator");
+            if (!indicator) {
+                indicator = document.createElement("div");
+                indicator.id = "typingIndicator";
+                indicator.className = "message-system";
+                messagesContainer.appendChild(indicator);
+            }
+            indicator.textContent = `${sender} is typing...`;
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function hideTypingIndicator() {
+            let indicator = document.getElementById("typingIndicator");
+            if (indicator) {
+                indicator.remove();
+            }
+        }
+
+        function addMessage(text, type, sender, target) {
+            if (!messageStore[target]) {
+                messageStore[target] = [];
+            }
+
+            let messageDiv = document.createElement('div');
+            
+            if (type === "system") {
+                messageDiv.className = "message-system";
+                messageDiv.textContent = text;
+            } else {
+                let isMe = (sender === username);
+                
+                let bubbleClass = isMe ? "message-mine" : "message-theirs";
+                let privateClass = type === "private" ? "message-private" : "";
+                messageDiv.className = `message-bubble ${bubbleClass} ${privateClass}`;
+                
+                let privateTag = type === "private" ? '🔒 ' : '';
+
+                if (isMe) {
+                    messageDiv.innerHTML = `${privateTag}${text}`;
+                } else {
+                    messageDiv.innerHTML = `<span class="sender-name">${sender}</span>${privateTag}${text}`;
+                }
+            }
+
+            messageStore[target].push(messageDiv);
+
+            if (currentTarget === target) {
+                messagesContainer.appendChild(messageDiv);
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+        }
+
+        function updateUserList(users) {
+            let listDiv = document.getElementById("userList");
+            listDiv.innerHTML = ""; 
+
+            let groupDiv = document.createElement("div");
+            groupDiv.className = `user-item ${currentTarget === "Group" ? "active" : ""}`;
+            groupDiv.textContent = "🌍 Everyone (Group)";
+            groupDiv.onclick = () => setTarget("Group", groupDiv);
+            listDiv.appendChild(groupDiv);
+
+            users.forEach(user => {
+                if (user !== username) { 
+                    if (!messageStore[user]) {
+                        messageStore[user] = [];
+                    }
+                    let userDiv = document.createElement("div");
+                    userDiv.className = `user-item ${currentTarget === user ? "active" : ""}`;
+                    userDiv.textContent = "👤 " + user;
+                    userDiv.onclick = () => setTarget(user, userDiv);
+                    listDiv.appendChild(userDiv);
+                }
+            });
+        }
+
+        function setTarget(target, element) {
+            currentTarget = target;
+            document.getElementById("chatHeaderText").textContent = "Chatting with: " + target;
+            
+            document.querySelectorAll(".user-item").forEach(el => el.classList.remove("active"));
+            element.classList.add("active");
+            hideTypingIndicator();
+
+            messagesContainer.innerHTML = "";
+
+            if (!messageStore[currentTarget]) {
+                messageStore[currentTarget] = [];
+            }
+
+            messageStore[currentTarget].forEach(msgDiv => {
+                messagesContainer.appendChild(msgDiv);
+            });
+
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function sendMessage() {
+            let input = document.getElementById("messageText");
+            if (input.value.trim() !== "") {
+                clearTimeout(typingTimeout);
+                isTyping = false;
+                sendTypingStatus(false);
+
+                let payload = {
+                    type: "message",
+                    target: currentTarget,
+                    text: input.value
+                };
+                ws.send(JSON.stringify(payload));
+
+                let isPrivate = currentTarget !== "Group";
+                let messageType = isPrivate ? "private" : "standard";
+                addMessage(input.value, messageType, username, currentTarget);
+
                 input.value = '';
                 input.focus();
             }
